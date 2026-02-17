@@ -6,11 +6,11 @@ ENV HOME=/srv
 RUN mkdir -p /srv/.minecraft/nmp-cache
 
 COPY package.json yarn.lock ./
-RUN yarn install --frozen-lockfile
+RUN npm install
 RUN mkdir -p /srv/.minecraft
 ENV HOME=/srv
 
 COPY src ./src
 COPY index.js ./
 
-CMD ["yarn", "start"]
+CMD ["npm", "start"]

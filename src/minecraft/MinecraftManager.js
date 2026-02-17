@@ -55,7 +55,7 @@ class MinecraftManager extends CommunicationBridge {
 
   const username = process.env.MINECRAFT_USERNAME
   const auth = (process.env.MINECRAFT_ACCOUNT_TYPE ?? 'microsoft')
-  const version = process.env.MINECRAFT_VERSION ?? '1.21.11'
+  const version = process.env.MINECRAFT_VERSION ?? '1.21.9'
 
   if (!username) throw new Error('Missing MINECRAFT_USERNAME')
 
@@ -64,6 +64,7 @@ class MinecraftManager extends CommunicationBridge {
 
   console.log('[mc-auth] using profilesFolder:', profilesFolder)
   try { console.log('[mc-auth] contents before:', fs.readdirSync(profilesFolder)) } catch (e) { console.log('[mc-auth] read err:', e.message) }
+  console.log('[MC cfg]', { host, port, version, auth, username: username ? 'set' : 'missing' })
 
   return mineflayer.createBot({
     host,
@@ -73,6 +74,7 @@ class MinecraftManager extends CommunicationBridge {
     version,
     profilesFolder
   })
+  
 }
 
 

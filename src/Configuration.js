@@ -1,5 +1,8 @@
 const fs = require('fs')
-
+console.log("CWD:", process.cwd())
+console.log("Has ./config.json:", fs.existsSync("config.json"))
+console.log("Has ../config.json:", fs.existsSync("../config.json"))
+console.log("ENV MINECRAFT_ACCOUNT_TYPE:", process.env.MINECRAFT_ACCOUNT_TYPE)
 class Configuration {
   properties = {
     server: {

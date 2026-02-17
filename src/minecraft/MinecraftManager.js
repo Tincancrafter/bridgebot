@@ -4,7 +4,8 @@ const StateHandler = require('./handlers/StateHandler')
 const ErrorHandler = require('./handlers/ErrorHandler')
 const ChatHandler = require('./handlers/ChatHandler')
 const mineflayer = require('mineflayer')
-
+const path = require('path')
+const fs = require('fs')
 class MinecraftManager extends CommunicationBridge {
   constructor(app) {
     super()
@@ -38,27 +39,28 @@ class MinecraftManager extends CommunicationBridge {
 
 
   createBotConnection() {
-  const host = process.env.SERVER_HOST ?? this.app.config?.server?.host ?? 'mc.hypixel.net'
-  const port = Number(process.env.SERVER_PORT ?? this.app.config?.server?.port ?? 25565)
+  const host = process.env.SERVER_HOST ?? 'mc.hypixel.net'
+  const port = Number(process.env.SERVER_PORT ?? 25565)
 
-  const username = process.env.MINECRAFT_USERNAME ?? this.app.config?.minecraft?.username
-  const password = process.env.MINECRAFT_PASSWORD ?? this.app.config?.minecraft?.password
-
-  const auth = process.env.MINECRAFT_ACCOUNT_TYPE ?? this.app.config?.minecraft?.accountType ?? 'microsoft'
+  const username = process.env.MINECRAFT_USERNAME
+  const auth = (process.env.MINECRAFT_ACCOUNT_TYPE ?? 'microsoft')
   const version = process.env.MINECRAFT_VERSION ?? '1.21.11'
 
   if (!username) throw new Error('Missing MINECRAFT_USERNAME')
+
+  const profilesFolder = '/srv/.mc-auth'
+  try { fs.mkdirSync(profilesFolder, { recursive: true }) } catch {}
+
+  console.log('[mc-auth] using profilesFolder:', profilesFolder)
+  try { console.log('[mc-auth] contents before:', fs.readdirSync(profilesFolder)) } catch (e) { console.log('[mc-auth] read err:', e.message) }
 
   return mineflayer.createBot({
     host,
     port,
     username,
-    password,
     auth,
     version,
-
-    // Persist Microsoft auth + profile cache between restarts
-    profilesFolder: './.mc-auth'
+    profilesFolder
   })
 }
 

@@ -14,16 +14,18 @@ class StateHandler extends EventHandler {
   }
 
   onError(error) {
-    if (this.isConnectionResetError(error)) {
-      return
-    }
-
-    if (this.isConnectionRefusedError(error)) {
-      return this.minecraft.app.log.error('Connection refused while attempting to login via the Minecraft client')
-    }
-
-    this.minecraft.app.log.error(error)
+  if (this.isConnectionResetError(error)) {
+    // Hypixel kicks often surface as ECONNRESET; log it so we can see patterns
+    return this.minecraft.app.log.warning(`[MC] Connection reset: ${error.message || error}`)
   }
+
+  if (this.isConnectionRefusedError(error)) {
+    return this.minecraft.app.log.error('Connection refused while attempting to login via the Minecraft client')
+  }
+
+  this.minecraft.app.log.error(error)
+}
+
 
   isConnectionResetError(error) {
     return error.hasOwnProperty('code') && error.code == 'ECONNRESET'

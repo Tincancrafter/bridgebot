@@ -17,12 +17,25 @@ class MinecraftManager extends CommunicationBridge {
   }
 
   connect() {
-    this.bot = this.createBotConnection()
+  this.bot = this.createBotConnection()
 
-    this.errorHandler.registerEvents(this.bot)
-    this.stateHandler.registerEvents(this.bot)
-    this.chatHandler.registerEvents(this.bot)
-  }
+  this.bot.on('kicked', (reason, loggedIn) => {
+    console.log('[MC] kicked. loggedIn=', loggedIn, 'reason=', reason)
+  })
+
+  this.bot.on('error', (err) => {
+    console.log('[MC] error:', err)
+  })
+
+  this.bot.on('end', () => {
+    console.log('[MC] connection ended')
+  })
+
+  this.errorHandler.registerEvents(this.bot)
+  this.stateHandler.registerEvents(this.bot)
+  this.chatHandler.registerEvents(this.bot)
+}
+
 
   createBotConnection() {
   const host = process.env.SERVER_HOST ?? this.app.config?.server?.host ?? 'mc.hypixel.net'

@@ -67,10 +67,9 @@ createBotConnection() {
 
   // IMPORTANT: do NOT force "1.21.11"
   // Let minecraft-protocol/mineflayer pick the correct supported Java version for Hypixel
-  version: process.env.MINECRAFT_VERSION || undefined
+  const version = process.env.MINECRAFT_VERSION || undefined;
+  console.log('[MC cfg]', { host, port, version: version ?? '(auto)', auth, username: 'set', profilesFolder });
 
-
-  console.log('[MC cfg]', { host, port, version, auth, username: 'set', profilesFolder })
 
   const bot = mineflayer.createBot({ host, port, username, auth, version, profilesFolder })
 

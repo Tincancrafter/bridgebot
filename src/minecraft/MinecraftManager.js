@@ -20,22 +20,33 @@ class MinecraftManager extends CommunicationBridge {
   connect() {
   this.bot = this.createBotConnection()
 
+  // Mineflayer-level events
   this.bot.on('kicked', (reason, loggedIn) => {
-    console.log('[MC] kicked. loggedIn=', loggedIn, 'reason=', reason)
+    console.log('[MC] kicked loggedIn=', loggedIn, 'reason=', reason)
   })
-
+  this.bot.on('end', (reason) => {
+    console.log('[MC] end reason=', reason)
+  })
   this.bot.on('error', (err) => {
-    console.log('[MC] error:', err)
+    console.log('[MC] bot error:', err)
   })
 
-  this.bot.on('end', () => {
-    console.log('[MC] connection ended')
+  // Raw protocol-level disconnect (THIS is the money one)
+  this.bot._client?.on?.('disconnect', (packet) => {
+    console.log('[MC] client disconnect packet:', packet)
+  })
+  this.bot._client?.on?.('end', () => {
+    console.log('[MC] client end')
+  })
+  this.bot._client?.on?.('error', (err) => {
+    console.log('[MC] client error:', err)
   })
 
   this.errorHandler.registerEvents(this.bot)
   this.stateHandler.registerEvents(this.bot)
   this.chatHandler.registerEvents(this.bot)
 }
+
 
 
   createBotConnection() {

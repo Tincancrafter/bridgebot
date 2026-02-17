@@ -19,9 +19,6 @@ class MinecraftManager extends CommunicationBridge {
 
   connect() {
   this.bot = this.createBotConnection()
-  this.bot.once('login', () => console.log('[MC] login event fired'))
-this.bot.once('spawn', () => console.log('[MC] spawn event fired'))
-this.bot.once('game', () => console.log('[MC] game event fired'))
   // Mineflayer-level events
   this.bot.on('kicked', (reason, loggedIn) => {
     console.log('[MC] kicked loggedIn=', loggedIn, 'reason=', reason)
@@ -68,21 +65,23 @@ this.bot.once('game', () => console.log('[MC] game event fired'))
 
   if (!username) throw new Error('Missing MINECRAFT_USERNAME')
 
-  const profilesFolder = '/srv/.mc-auth'
+  const profilesFolder = process.env.MC_PROFILES ?? '/srv/.mc-auth'
   try { fs.mkdirSync(profilesFolder, { recursive: true }) } catch {}
 
   console.log('[mc-auth] using profilesFolder:', profilesFolder)
   try { console.log('[mc-auth] contents before:', fs.readdirSync(profilesFolder)) } catch (e) { console.log('[mc-auth] read err:', e.message) }
   console.log('[MC cfg]', { host, port, version, auth, username: username ? 'set' : 'missing' })
+  bot.once('connect', () => console.log('[MC] connect'))
+bot.once('login', () => console.log('[MC] login'))
+bot.once('spawn', () => console.log('[MC] spawn'))
 
-  return mineflayer.createBot({
-    host,
-    port,
-    username,
-    auth,
-    version,
-    profilesFolder
-  })
+bot._client?.on?.('disconnect', (p) => console.log('[MC] disconnect packet', p))
+bot._client?.on?.('kick_disconnect', (p) => console.log('[MC] kick_disconnect packet', p))
+bot._client?.on?.('error', (e) => console.log('[MC] client error', e?.message || e))
+bot._client?.on?.('end', () => console.log('[MC] client end'))
+
+  return mineflayer.createBot({ host, port, username, auth, version, profilesFolder })
+
   
 }
 

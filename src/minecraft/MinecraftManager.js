@@ -4,8 +4,7 @@ const StateHandler = require('./handlers/StateHandler')
 const ErrorHandler = require('./handlers/ErrorHandler')
 const ChatHandler = require('./handlers/ChatHandler')
 const mineflayer = require('mineflayer')
-const path = require('path')
-const fs = require('fs')
+
 class MinecraftManager extends CommunicationBridge {
   constructor(app) {
     super()
@@ -18,89 +17,142 @@ class MinecraftManager extends CommunicationBridge {
   }
 
   connect() {
-  this.bot = this.createBotConnection()
-  // Mineflayer-level events
-  this.bot.on('kicked', (reason, loggedIn) => {
-    console.log('[MC] kicked loggedIn=', loggedIn, 'reason=', reason)
-  })
-  this.bot.on('end', (reason) => {
-    console.log('[MC] end reason=', reason)
-  })
-  this.bot.on('error', (err) => {
-    console.log('[MC] bot error:', err)
-  })
+    this.bot = this.createBotConnection()
 
-  // Raw protocol-level disconnect (THIS is the money one)
-  this.bot._client?.on?.('error', (err) => {
-  const msg = String(err?.message || err)
-  if (msg.includes('Status code: 429')) {
-    // tell the reconnect logic to chill
-    this.stateHandler?.forceCooldown?.(20 * 60_000) // 20 minutes
+    // Mineflayer-level events (clean, non-duplicated)
+    this.bot.on('kicked', (reason, loggedIn) => {
+      console.log('[MC] kicked loggedIn=', loggedIn, 'reason=', reason)
+    })
+
+    this.bot.on('end', (reason) => {
+      console.log('[MC] end reason=', reason)
+    })
+
+    this.bot.on('error', (err) => {
+      console.log('[MC] bot error:', err)
+    })
+
+    // Raw protocol-level events
+    const c = this.bot._client
+    if (c?.on) {
+      c.on('end', () => console.log('[MC] client end'))
+      c.on('error', (err) => {
+        const msg = String(err?.message || err)
+        console.log('[MC] client error:', err)
+
+        // If Hypixel rate-limits (rare), cool down reconnects if your StateHandler supports it
+        if (msg.includes('Status code: 429')) {
+          this.stateHandler?.forceCooldown?.(20 * 60_000) // 20 minutes
+        }
+      })
+
+      // Some versions emit disconnect via packets rather than an event
+      c.on('packet', (data, meta) => {
+        if (!meta?.name) return
+        if (meta.name === 'disconnect' || meta.name === 'kick_disconnect') {
+          console.log('[MC] DISCONNECT PACKET:', meta.name, data)
+        }
+      })
+    }
+
+    this.errorHandler.registerEvents(this.bot)
+    this.stateHandler.registerEvents(this.bot)
+    this.chatHandler.registerEvents(this.bot)
   }
-})
-  this.bot._client?.on?.('disconnect', (packet) => {
-    console.log('[MC] client disconnect packet:', packet)
-  })
-  this.bot._client?.on?.('end', () => {
-    console.log('[MC] client end')
-  })
-  this.bot._client?.on?.('error', (err) => {
-    console.log('[MC] client error:', err)
-  })
 
-  this.errorHandler.registerEvents(this.bot)
-  this.stateHandler.registerEvents(this.bot)
-  this.chatHandler.registerEvents(this.bot)
-}
+  createBotConnection() {
+    const host = process.env.MINECRAFT_HOST ?? this.app.config?.server?.host ?? 'mc.hypixel.net'
+    const port = Number(process.env.MINECRAFT_PORT ?? this.app.config?.server?.port ?? 25565)
+    const username = process.env.MINECRAFT_USERNAME ?? this.app.config?.minecraft?.username
 
+    const auth = process.env.MINECRAFT_ACCOUNT_TYPE ?? this.app.config?.minecraft?.accountType ?? 'microsoft'
+    const profilesFolder = process.env.MINECRAFT_PROFILES ?? '/srv/.mc-auth'
 
+    if (!username) throw new Error('Missing MINECRAFT_USERNAME')
 
-createBotConnection() {
-  const host = process.env.MINECRAFT_HOST ?? this.app.config?.server?.host ?? 'mc.hypixel.net'
-  const port = Number(process.env.MINECRAFT_PORT ?? this.app.config?.server?.port ?? 25565)
-  const username = process.env.MINECRAFT_USERNAME ?? this.app.config?.minecraft?.username
+    // IMPORTANT:
+    // - DO NOT pass `false` for version (breaks).
+    // - If unset, use `undefined` so mineflayer picks its default.
+    // - If you want to force a version, set MINECRAFT_VERSION to a string.
+    const versionEnv = process.env.MINECRAFT_VERSION
+    const version = (typeof versionEnv === 'string' && versionEnv.trim().length > 0) ? versionEnv.trim() : undefined
 
-  const auth = process.env.MINECRAFT_ACCOUNT_TYPE ?? this.app.config?.minecraft?.accountType ?? 'microsoft'
-  const profilesFolder = process.env.MINECRAFT_PROFILES ?? '/srv/.mc-auth'
+    console.log('[MC cfg]', {
+      host,
+      port,
+      version: version ?? '(auto)',
+      auth,
+      username: 'set',
+      profilesFolder
+    })
 
-  if (!username) throw new Error('Missing MINECRAFT_USERNAME')
+    const bot = mineflayer.createBot({ host, port, username, auth, version, profilesFolder })
 
-  // IMPORTANT: do NOT force "1.21.11"
-  // Let minecraft-protocol/mineflayer pick the correct supported Java version for Hypixel
-  const version = process.env.MINECRAFT_VERSION || "1.21.11";
-  console.log('[MC cfg]', { host, port, version: version ?? '(auto)', auth, username: 'set', profilesFolder });
+    // High-signal debugging
+    bot.once('connect', () => console.log('[MC] connect'))
+    bot.once('login', () => console.log('[MC] login'))
+    bot.once('spawn', () => console.log('[MC] spawn'))
 
+    // ---- Hypixel 1.20.2+ / 1.21.x workaround ----
+    // Hypixel may close the socket if it never receives modern client settings
+    // during the configuration/play transition. We try a few packet names
+    // because the mapping varies by protocol version.
+    const sendSettingsIfNeeded = () => {
+      const c = bot._client
+      if (!c) return
 
-  const bot = mineflayer.createBot({ host, port, username, auth, version, profilesFolder })
+      const settingsPayload = {
+        locale: 'en_US',
+        viewDistance: 10,
+        chatMode: 0, // enabled
+        chatColors: true,
+        displayedSkinParts: 0x7f,
+        mainHand: 1, // right
+        enableTextFiltering: false,
+        allowServerListing: true
+      }
 
-  // High-signal debugging
-  bot.once('connect', () => console.log('[MC] connect'))
-  bot.once('login', () => console.log('[MC] login'))
-  bot.once('spawn', () => console.log('[MC] spawn'))
+      const tryWrite = (name) => {
+        try {
+          c.write(name, settingsPayload)
+          console.log('[MC] sent settings packet:', name)
+          return true
+        } catch {
+          return false
+        }
+      }
 
-  bot.on('kicked', (reason, loggedIn) => {
-    console.log('[MC] kicked', { loggedIn, reason })
-  })
+      // Try likely names across mappings
+      tryWrite('settings') ||
+      tryWrite('client_settings') ||
+      tryWrite('configuration_settings')
+    }
 
-  bot.on('end', (reason) => {
-    console.log('[MC] end', { reason })
-  })
+    // If the client exposes "state" transitions, use them
+    if (bot._client?.on) {
+      bot._client.on('state', (newState) => {
+        if (newState === 'configuration' || newState === 'play') {
+          sendSettingsIfNeeded()
+        }
+      })
 
-  bot.on('error', (err) => {
-    console.log('[MC] error', err)
-  })
+      // Also trigger after login success (covers some mappings)
+      bot._client.on('packet', (_data, meta) => {
+        if (!meta?.name) return
+        if (meta.name === 'login_success' || meta.name === 'login_acknowledged') {
+          sendSettingsIfNeeded()
+        }
+      })
+    }
+    // ---- end workaround ----
 
-  // This is the money log: server disconnect packet reason
-  bot._client?.on('disconnect', (packet) => {
-    console.log('[MC] client disconnect packet:', packet)
-  })
+    return bot
+  }
 
-  return bot
-}
   onBroadcast({ username, message, replyingTo }) {
     this.app.log.broadcast(`${username}: ${message}`, 'Minecraft')
 
-    if (this.bot.player !== undefined) {
+    if (this.bot?.player !== undefined) {
       this.bot.chat(`/gc ${replyingTo ? `${username} replying to ${replyingTo}:` : `${username}:`} ${message}`)
     }
   }

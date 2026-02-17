@@ -46,7 +46,7 @@ class StateHandler extends EventHandler {
     }, delay)
 
     // backoff: 60s, 120s, 240s... up to 10 minutes
-    this.reconnectDelayMs = Math.min(this.reconnectDelayMs * 2, 10 * 60_000)
+    this.reconnectDelayMs = 10 * 60_000
   }
 
   onEnd(reason) {
@@ -60,6 +60,10 @@ class StateHandler extends EventHandler {
     this.minecraft.app.log.warn(`Minecraft bot was kicked from server for "${reason}"`)
     this.scheduleReconnect('kicked')
   }
+  forceCooldown(ms) {
+  this.reconnectDelayMs = Math.max(this.reconnectDelayMs, ms)
+}
+
 }
 
 module.exports = StateHandler

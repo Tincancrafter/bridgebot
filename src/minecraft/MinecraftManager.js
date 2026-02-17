@@ -32,6 +32,13 @@ class MinecraftManager extends CommunicationBridge {
   })
 
   // Raw protocol-level disconnect (THIS is the money one)
+  this.bot._client?.on?.('error', (err) => {
+  const msg = String(err?.message || err)
+  if (msg.includes('Status code: 429')) {
+    // tell the reconnect logic to chill
+    this.stateHandler?.forceCooldown?.(20 * 60_000) // 20 minutes
+  }
+})
   this.bot._client?.on?.('disconnect', (packet) => {
     console.log('[MC] client disconnect packet:', packet)
   })

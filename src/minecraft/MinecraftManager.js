@@ -56,34 +56,42 @@ class MinecraftManager extends CommunicationBridge {
 
 
   createBotConnection() {
-  const host = process.env.SERVER_HOST ?? 'mc.hypixel.net'
-  const port = Number(process.env.SERVER_PORT ?? 25565)
+  const host = process.env.MINECRAFT_HOST ?? this.app.config?.server?.host ?? 'mc.hypixel.net'
+  const port = Number(process.env.MINECRAFT_PORT ?? this.app.config?.server?.port ?? 25565)
 
-  const username = process.env.MINECRAFT_USERNAME
-  const auth = (process.env.MINECRAFT_ACCOUNT_TYPE ?? 'microsoft')
-  const version = process.env.MINECRAFT_VERSION ?? '1.21.9'
+  const username = process.env.MINECRAFT_USERNAME ?? this.app.config?.minecraft?.username
+  const auth = process.env.MINECRAFT_ACCOUNT_TYPE ?? this.app.config?.minecraft?.accountType ?? 'microsoft'
+
+  const version = process.env.MINECRAFT_VERSION ?? '1.21.11'
+  const profilesFolder = process.env.MC_PROFILES ?? '/srv/.mc-auth'
+
+  console.log('[MC cfg]', { host, port, version, auth, username: username ? 'set' : 'missing' })
+  console.log('[mc-auth] using profilesFolder:', profilesFolder)
 
   if (!username) throw new Error('Missing MINECRAFT_USERNAME')
 
-  const profilesFolder = process.env.MC_PROFILES ?? '/srv/.mc-auth'
-  try { fs.mkdirSync(profilesFolder, { recursive: true }) } catch {}
+  const bot = mineflayer.createBot({
+    host,
+    port,
+    username,
+    auth,
+    version,
+    profilesFolder,
+  })
 
-  console.log('[mc-auth] using profilesFolder:', profilesFolder)
-  try { console.log('[mc-auth] contents before:', fs.readdirSync(profilesFolder)) } catch (e) { console.log('[mc-auth] read err:', e.message) }
-  console.log('[MC cfg]', { host, port, version, auth, username: username ? 'set' : 'missing' })
+  // --- debug hooks ---
   bot.once('connect', () => console.log('[MC] connect'))
-bot.once('login', () => console.log('[MC] login'))
-bot.once('spawn', () => console.log('[MC] spawn'))
+  bot.once('login', () => console.log('[MC] login'))
+  bot.once('spawn', () => console.log('[MC] spawn'))
 
-bot._client?.on?.('disconnect', (p) => console.log('[MC] disconnect packet', p))
-bot._client?.on?.('kick_disconnect', (p) => console.log('[MC] kick_disconnect packet', p))
-bot._client?.on?.('error', (e) => console.log('[MC] client error', e?.message || e))
-bot._client?.on?.('end', () => console.log('[MC] client end'))
+  bot._client?.on?.('disconnect', (p) => console.log('[MC] disconnect packet', p))
+  bot._client?.on?.('kick_disconnect', (p) => console.log('[MC] kick_disconnect packet', p))
+  bot._client?.on?.('error', (e) => console.log('[MC] client error', e?.message || e))
+  bot._client?.on?.('end', () => console.log('[MC] client end'))
 
-  return mineflayer.createBot({ host, port, username, auth, version, profilesFolder })
-
-  
+  return bot
 }
+
 
 
 

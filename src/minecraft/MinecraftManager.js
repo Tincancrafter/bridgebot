@@ -58,39 +58,46 @@ class MinecraftManager extends CommunicationBridge {
 createBotConnection() {
   const host = process.env.MINECRAFT_HOST ?? this.app.config?.server?.host ?? 'mc.hypixel.net'
   const port = Number(process.env.MINECRAFT_PORT ?? this.app.config?.server?.port ?? 25565)
-
   const username = process.env.MINECRAFT_USERNAME ?? this.app.config?.minecraft?.username
-  const password = process.env.MINECRAFT_PASSWORD ?? this.app.config?.minecraft?.password
+
   const auth = process.env.MINECRAFT_ACCOUNT_TYPE ?? this.app.config?.minecraft?.accountType ?? 'microsoft'
-  const version = process.env.MINECRAFT_VERSION ?? '1.21.11'
-
-  // Persist Microsoft tokens/caches
-  const profilesFolder = process.env.MC_AUTH_DIR ?? '/srv/.mc-auth'
-
-  console.log('[runtime]', { node: process.version })
-  console.log('[MC cfg]', { host, port, version, auth, username: username ? 'set' : 'missing', profilesFolder })
+  const profilesFolder = process.env.MINECRAFT_PROFILES ?? '/srv/.mc-auth'
 
   if (!username) throw new Error('Missing MINECRAFT_USERNAME')
 
-  const bot = mineflayer.createBot({
-    host,
-    port,
-    username,
-    password,
-    auth,
-    version,
-    profilesFolder,
-  })
+  // IMPORTANT: do NOT force "1.21.11"
+  // Let minecraft-protocol/mineflayer pick the correct supported Java version for Hypixel
+  const version = process.env.MINECRAFT_VERSION ?? false
 
-  // Better connection diagnostics
+  console.log('[MC cfg]', { host, port, version, auth, username: 'set', profilesFolder })
+
+  const bot = mineflayer.createBot({ host, port, username, auth, version, profilesFolder })
+
+  // High-signal debugging
   bot.once('connect', () => console.log('[MC] connect'))
   bot.once('login', () => console.log('[MC] login'))
-  bot.on('kicked', (reason, loggedIn) => console.log('[MC] kicked', { loggedIn, reason }))
-  bot.on('end', (reason) => console.log('[MC] end', { reason }))
-  bot.on('error', (err) => console.log('[MC] error', err))
+  bot.once('spawn', () => console.log('[MC] spawn'))
+
+  bot.on('kicked', (reason, loggedIn) => {
+    console.log('[MC] kicked', { loggedIn, reason })
+  })
+
+  bot.on('end', (reason) => {
+    console.log('[MC] end', { reason })
+  })
+
+  bot.on('error', (err) => {
+    console.log('[MC] error', err)
+  })
+
+  // This is the money log: server disconnect packet reason
+  bot._client?.on('disconnect', (packet) => {
+    console.log('[MC] client disconnect packet:', packet)
+  })
 
   return bot
 }
+
 
 
 

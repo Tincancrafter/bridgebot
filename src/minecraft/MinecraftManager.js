@@ -55,18 +55,20 @@ class MinecraftManager extends CommunicationBridge {
 
 
 
-  createBotConnection() {
+createBotConnection() {
   const host = process.env.MINECRAFT_HOST ?? this.app.config?.server?.host ?? 'mc.hypixel.net'
   const port = Number(process.env.MINECRAFT_PORT ?? this.app.config?.server?.port ?? 25565)
 
   const username = process.env.MINECRAFT_USERNAME ?? this.app.config?.minecraft?.username
+  const password = process.env.MINECRAFT_PASSWORD ?? this.app.config?.minecraft?.password
   const auth = process.env.MINECRAFT_ACCOUNT_TYPE ?? this.app.config?.minecraft?.accountType ?? 'microsoft'
-
   const version = process.env.MINECRAFT_VERSION ?? '1.21.11'
-  const profilesFolder = process.env.MC_PROFILES ?? '/srv/.mc-auth'
 
-  console.log('[MC cfg]', { host, port, version, auth, username: username ? 'set' : 'missing' })
-  console.log('[mc-auth] using profilesFolder:', profilesFolder)
+  // Persist Microsoft tokens/caches
+  const profilesFolder = process.env.MC_AUTH_DIR ?? '/srv/.mc-auth'
+
+  console.log('[runtime]', { node: process.version })
+  console.log('[MC cfg]', { host, port, version, auth, username: username ? 'set' : 'missing', profilesFolder })
 
   if (!username) throw new Error('Missing MINECRAFT_USERNAME')
 
@@ -74,23 +76,22 @@ class MinecraftManager extends CommunicationBridge {
     host,
     port,
     username,
+    password,
     auth,
     version,
     profilesFolder,
   })
 
-  // --- debug hooks ---
+  // Better connection diagnostics
   bot.once('connect', () => console.log('[MC] connect'))
   bot.once('login', () => console.log('[MC] login'))
-  bot.once('spawn', () => console.log('[MC] spawn'))
-
-  bot._client?.on?.('disconnect', (p) => console.log('[MC] disconnect packet', p))
-  bot._client?.on?.('kick_disconnect', (p) => console.log('[MC] kick_disconnect packet', p))
-  bot._client?.on?.('error', (e) => console.log('[MC] client error', e?.message || e))
-  bot._client?.on?.('end', () => console.log('[MC] client end'))
+  bot.on('kicked', (reason, loggedIn) => console.log('[MC] kicked', { loggedIn, reason }))
+  bot.on('end', (reason) => console.log('[MC] end', { reason }))
+  bot.on('error', (err) => console.log('[MC] error', err))
 
   return bot
 }
+
 
 
 

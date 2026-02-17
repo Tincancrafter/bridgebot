@@ -19,7 +19,9 @@ class MinecraftManager extends CommunicationBridge {
 
   connect() {
   this.bot = this.createBotConnection()
-
+  this.bot.once('login', () => console.log('[MC] login event fired'))
+this.bot.once('spawn', () => console.log('[MC] spawn event fired'))
+this.bot.once('game', () => console.log('[MC] game event fired'))
   // Mineflayer-level events
   this.bot.on('kicked', (reason, loggedIn) => {
     console.log('[MC] kicked loggedIn=', loggedIn, 'reason=', reason)

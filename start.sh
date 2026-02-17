@@ -1,9 +1,4 @@
 #!/bin/bash
-
-echo "Creating config.json from Railway variables..."
-
-echo "$CONFIG_JSON" > config.json
-echo "$CONFIG_JSON" > ../config.json
-
-echo "Starting application..."
+echo "$CONFIG_JSON" > /srv/config.json
+echo "$CONFIG_JSON" > /config.json 2>/dev/null || true
 node index.js

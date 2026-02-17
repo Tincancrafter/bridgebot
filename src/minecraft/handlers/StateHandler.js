@@ -5,44 +5,60 @@ class StateHandler extends EventHandler {
     super()
 
     this.minecraft = minecraft
+
     this.loginAttempts = 0
-    this.exactDelay = 0
+    this.reconnectDelayMs = 60_000 // start at 60s to avoid 429
+    this.reconnectTimer = null
   }
 
   registerEvents(bot) {
     this.bot = bot
 
-    this.bot.on('login', (...args) => this.onLogin(...args))
-    this.bot.on('end', (...args) => this.onEnd(...args))
-    this.bot.on('kicked', (...args) => this.onKicked(...args))
+    this.bot.on('login', () => this.onLogin())
+    this.bot.on('end', (reason) => this.onEnd(reason))
+    this.bot.on('kicked', (reason) => this.onKicked(reason))
   }
 
   onLogin() {
     this.minecraft.app.log.minecraft('Client ready, logged in as ' + this.bot.username)
 
+    // success => reset backoff
     this.loginAttempts = 0
-    this.exactDelay = 0
+    this.reconnectDelayMs = 60_000
+
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer)
+      this.reconnectTimer = null
+    }
   }
 
-  onEnd() {
-    let loginDelay = this.exactDelay
-    if (loginDelay == 0) {
-      loginDelay = (this.loginAttempts + 1) * 5000
+  scheduleReconnect(context) {
+    if (this.reconnectTimer) return // prevent stacking timers
 
-      if (loginDelay > 60000) {
-        loginDelay = 60000
-      }
-    }
+    const delay = this.reconnectDelayMs
+    this.minecraft.app.log.warn(
+      `Minecraft bot disconnected (${context}). Attempting reconnect in ${Math.round(delay / 1000)} seconds`
+    )
 
-    this.minecraft.app.log.warn(`Minecraft bot disconnected from server, attempting reconnect in ${loginDelay / 1000} seconds`)
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null
+      this.minecraft.connect()
+    }, delay)
 
-    setTimeout(() => this.minecraft.connect(), loginDelay)
+    // backoff: 60s, 120s, 240s... up to 10 minutes
+    this.reconnectDelayMs = Math.min(this.reconnectDelayMs * 2, 10 * 60_000)
+  }
+
+  onEnd(reason) {
+    // count all disconnects, not only kicks
+    this.loginAttempts++
+    this.scheduleReconnect(`end: ${reason || 'unknown'}`)
   }
 
   onKicked(reason) {
-    this.minecraft.app.log.warn(`Minecraft bot was kicked from server for "${reason}"`)
-
     this.loginAttempts++
+    this.minecraft.app.log.warn(`Minecraft bot was kicked from server for "${reason}"`)
+    this.scheduleReconnect('kicked')
   }
 }
 

@@ -18,6 +18,7 @@ class MinecraftManager extends CommunicationBridge {
   }
 
   connect() {
+  console.log('[MC cfg]', { host, port, version, auth, username })
   this.bot = this.createBotConnection()
 
   // Mineflayer-level events

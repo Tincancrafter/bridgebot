@@ -67,7 +67,7 @@ createBotConnection() {
 
   // IMPORTANT: do NOT force "1.21.11"
   // Let minecraft-protocol/mineflayer pick the correct supported Java version for Hypixel
-  const version = process.env.MINECRAFT_VERSION || "1.8.9";
+  const version = process.env.MINECRAFT_VERSION || "1.21.9";
   console.log('[MC cfg]', { host, port, version: version ?? '(auto)', auth, username: 'set', profilesFolder });
 
 

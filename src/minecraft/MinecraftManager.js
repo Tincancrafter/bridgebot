@@ -75,7 +75,7 @@ class MinecraftManager extends CommunicationBridge {
     // - If unset, use `undefined` so mineflayer picks its default.
     // - If you want to force a version, set MINECRAFT_VERSION to a string.
     const versionEnv = process.env.MINECRAFT_VERSION
-    const version = (typeof versionEnv === 'string' && versionEnv.trim().length > 0) ? versionEnv.trim() : undefined
+    const version = (typeof versionEnv === 'string' && versionEnv.trim().length > 0) ? versionEnv.trim() : "1.21.11"
 
     console.log('[MC cfg]', {
       host,
